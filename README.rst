@@ -1,5 +1,0 @@
-PY_TEMPLATE_REPOSITORY
-########################
-
-Summary
-=========

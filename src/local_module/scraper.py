@@ -31,7 +31,7 @@ class ALL_PRODUCTS(Request):
         self.all_products: List[str] = []
 
     def get_all_products(self) -> List[str]:
-        page_num: int = 73
+        page_num: int = 1
         while True:
             url: str = self.URL.format(page_num=page_num)
             self.get(url)
@@ -57,6 +57,8 @@ class Field:
     top_note: Optional[str] = None
     middle_note: Optional[str] = None
     last_note: Optional[str] = None
+    perfumer: Optional[str] = None
+    image: Optional[str] = None
     impression: Optional[str] = None
     scene: Optional[str] = None
     season: Optional[str] = None
@@ -67,7 +69,6 @@ class PRODUCT_DETAIL(Request):
     def __init__(self, url_list: List[str]):
         super().__init__()
         self.url_list: List[str] = url_list
-        self.table: List[dict] = []
 
     @staticmethod
     def _get_names(bs) -> list:
@@ -93,17 +94,61 @@ class PRODUCT_DETAIL(Request):
         return ",".join(mf_list)
 
     @staticmethod
-    def _get_note_description(bs, target) -> str:
+    def _get_note_description(bs, target: Optional[str] = None) -> str:
         sd_selector: str = ".woocommerce-product-details__short-description"
         short_description: str = bs.select_one(sd_selector).text
         reg: str = r"(?<=香りのノート).+?(?=香りのイメージと印象)"
         extract = re.search(reg, short_description, flags=re.DOTALL)
+        node_target: tuple = ("Top", "Middle", "Last")
         lines: list = extract.group().strip().splitlines()
         for next_index, line in enumerate(lines, 1):
-            if line in target and target in ("Top", "Middle", "Last"):
+            if re.match(r"調香師：.?", line):
+                r = re.search(r"(?<=調香師：).+", line)
+                return r.group()
+            elif target is not None and line in target and target in node_target:
                 return ",".join(lines[next_index].split("　"))
+        return ""
+
+    @staticmethod
+    def _check(text: str, target: str) -> bool:
+        if target in text:
+            return True
+        return False
+
+    def _get_image(self, bs, image: bool = True):
+        sd_selector: str = ".woocommerce-product-details__short-description"
+        short_description: str = bs.select_one(sd_selector).text
+        reg: str = r"(?<=香りのイメージと印象).+?(?=ご利用シーン・季節)"
+        extract = re.search(reg, short_description, flags=re.DOTALL)
+        raws: str = extract.group()
+        target_tuple: tuple = ("フレッシュ", "ユニーク", "スイート", "ナチュラル", "温かみ")
+        if image:
+            target_tuple: tuple = ("エレガント", "キュート", "セクシー", "ベーシック", "モード")
+        image_list : List[str] = []
+        for target in target_tuple:
+            if self._check(raws, target):
+                image_list.append(target)
+        return ",".join(image_list)
+
+    def _get_scene(self, bs, scene: bool = True):
+        sd_selector: str = ".woocommerce-product-details__short-description"
+        short_description: str = bs.select_one(sd_selector).text
+        reg: str = r"(?<=ご利用シーン・季節).+?(?=お送りする容器について)"
+        extract = re.search(reg, short_description, flags=re.DOTALL)
+        raws: str = extract.group()
+        target_tuple: tuple = ("全ての季節に合います", "春", "夏", "秋", "冬")
+        if scene:
+            target_tuple: tuple = ("オフィス", "デート", "デイリー", "パーティー", "リラックス")
+        scene_list : List[str] = []
+        for target in target_tuple:
+            if "全ての季節に合います" in raws:
+                return "春,夏,秋,冬"
+            elif self._check(raws, target):
+                scene_list.append(target)
+        return ",".join(scene_list)
 
     def get_detail(self) -> List[dict]:
+        table: List[dict] = []
         for url in self.url_list:
             record = Field(url=url)
             self.get(url)
@@ -123,16 +168,20 @@ class PRODUCT_DETAIL(Request):
             record.main_fragrances = mf
 
             # notes
-            top_note = self._get_note_description(bs, "Top")
-            middle_note = self._get_note_description(bs, "Middle")
-            last_note = self._get_note_description(bs, "Last")
+            record.top_note = self._get_note_description(bs, "Top")
+            record.middle_note = self._get_note_description(bs, "Middle")
+            record.last_note = self._get_note_description(bs, "Last")
+            record.perfumer = self._get_note_description(bs)
 
-            # TODO: Eat the icecream later
-            from icecream import ic
-            ic(top_note)
-            ic(middle_note)
-            ic(last_note)
+            # image and impression
+            record.image = self._get_image(bs, image=True)
+            record.impression = self._get_image(bs, image=False)
+
+            # scene and season
+            record.scene = self._get_scene(bs, scene=True)
+            record.season = self._get_scene(bs, scene=False)
 
             # Append to list
-            print(record)
+            table.append(asdict(record))
             time.sleep(1)
+        return table
