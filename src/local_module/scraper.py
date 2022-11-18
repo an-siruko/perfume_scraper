@@ -92,7 +92,10 @@ class PRODUCT_DETAIL(Request):
         for elm in bs.select(mf_selector):
             mf_str: str = urllib.parse.unquote(elm["href"]).split("/")[-2]
             mf = re.search(r"[a-zA-Z\-]+", mf_str)
-            mf_list.append(mf.group())
+            try:
+                mf_list.append(mf.group())
+            except AttributeError:
+                return "Error"
         return ",".join(mf_list)
 
     @staticmethod
@@ -102,7 +105,10 @@ class PRODUCT_DETAIL(Request):
         reg: str = r"(?<=香りのノート).+?(?=香りのイメージと印象)"
         extract = re.search(reg, short_description, flags=re.DOTALL)
         node_target: tuple = ("Top", "Middle", "Last")
-        lines: list = extract.group().strip().splitlines()
+        try:
+            lines: list = extract.group().strip().splitlines()
+        except AttributeError:
+            return "Error"
         for next_index, line in enumerate(lines, 1):
             if re.match(r"調香師：.?", line):
                 r = re.search(r"(?<=調香師：).+", line)
@@ -122,7 +128,10 @@ class PRODUCT_DETAIL(Request):
         short_description: str = bs.select_one(sd_selector).text
         reg: str = r"(?<=香りのイメージと印象).+?(?=ご利用シーン・季節)"
         extract = re.search(reg, short_description, flags=re.DOTALL)
-        raws: str = extract.group()
+        try:
+            raws: str = extract.group()
+        except AttributeError:
+            return "Error"
         target_tuple: tuple = ("フレッシュ", "ユニーク", "スイート", "ナチュラル", "温かみ")
         if image:
             target_tuple: tuple = ("エレガント", "キュート", "セクシー", "ベーシック", "モード")
@@ -137,7 +146,10 @@ class PRODUCT_DETAIL(Request):
         short_description: str = bs.select_one(sd_selector).text
         reg: str = r"(?<=ご利用シーン・季節).+?(?=お送りする容器について)"
         extract = re.search(reg, short_description, flags=re.DOTALL)
-        raws: str = extract.group()
+        try:
+            raws: str = extract.group()
+        except AttributeError:
+            return "Error"
         target_tuple: tuple = ("全ての季節に合います", "春", "夏", "秋", "冬")
         if scene:
             target_tuple: tuple = ("オフィス", "デート", "デイリー", "パーティー", "リラックス")
