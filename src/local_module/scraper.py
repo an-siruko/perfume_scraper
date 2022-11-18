@@ -73,7 +73,9 @@ class PRODUCT_DETAIL(Request):
     @staticmethod
     def _get_names(bs) -> list:
         title = bs.select_one("h1").text
-        return title.split("–")
+        if (sep_title := title.split("–")) and len(sep_title) == 2:
+            return sep_title
+        return [title, ""]
 
     @staticmethod
     def _get_rate(bs) -> tuple:
